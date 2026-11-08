@@ -1,7 +1,7 @@
 const std = @import("std");
 const rl = @import("raylib");
 
-const bsp_renderer = @import("bsp_renderer");
+const quesam = @import("quesam");
 
 pub fn main(init: std.process.Init) !void {
     _ = init;

@@ -1,7 +1,7 @@
 .{
-    .name = .bsp_renderer,
+    .name = .quesam,
     .version = "0.0.0",
-    .fingerprint = 0x176575c04fd63d1e,
+    .fingerprint = 0x55248643ea0ed033,
     .minimum_zig_version = "0.17.0",
     .dependencies = .{
         .raylib_zig = .{
