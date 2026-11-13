@@ -4,6 +4,8 @@ const rl = @import("raylib");
 const Bsp = @import("../bsp.zig").Bsp;
 const BspTestRenderer = @import("renderer.zig").BspTestRenderer;
 
+const camera = @import("camera.zig");
+
 
 pub fn runRaylibApp(allocator: std.mem.Allocator, io: std.Io) !void {
     const windowWidth = 1024;
@@ -18,7 +20,7 @@ pub fn runRaylibApp(allocator: std.mem.Allocator, io: std.Io) !void {
     const test_bsp = try Bsp.load(allocator, io, "assets/maps/q3dm0.bsp");
     defer test_bsp.unload();
 
-    var camera = rl.Camera{
+    var cam = rl.Camera{
         .fovy = 45,
         .position = .init(10, 10, 10),
         .projection = .perspective,
@@ -32,17 +34,18 @@ pub fn runRaylibApp(allocator: std.mem.Allocator, io: std.Io) !void {
     // Main game loop
     while (!rl.windowShouldClose()) {
         
-        // TODO: Make Your Own Free Camera
-        rl.updateCamera(&camera, .free);
+        rl.updateCamera(&cam, .custom);
+        cam = camera.cameraFreeMove(cam, 0.0167, 8, .{});
+        cam = camera.cameraFreeLook(cam, .{});
         if (rl.isKeyPressed(.z)) {
-            camera.target = .init(0, 0, 0);
+            cam.target = .init(0, 0, 0);
         }
         
         rl.beginDrawing();
         defer rl.endDrawing();
         rl.clearBackground(.dark_green);
 
-        rl.beginMode3D(camera);
+        rl.beginMode3D(cam);
         defer rl.endMode3D();
 
         BspTestRenderer.rlglDrawBspOnlyVertexLighting(test_bsp);
