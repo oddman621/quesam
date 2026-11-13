@@ -7,10 +7,6 @@ pub const BspTestRenderer = struct {
         rl.gl.rlBegin(rl.gl.rl_triangles);
         defer rl.gl.rlEnd();
 
-        // TODO: Face cull inconsistency between opengl and bsp.
-        rl.gl.rlEnableBackfaceCulling();
-        rl.gl.rlSetCullFace(@intFromEnum(rl.gl.rlCullMode.rl_cull_face_front));
-
         for (bsp.surfaces.surfaces) |surface| {
             switch (surface.surface_type) {
                 .bad, .flare, .patch => continue,
