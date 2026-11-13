@@ -147,11 +147,11 @@ pub const SurfaceType = enum(i32) {
 pub const BspSurface = extern struct {
     shader_num: i32,
     fog_num: i32,
-    surfaceType: SurfaceType,
-    firstVert: i32,
-    numVerts: i32,
-    firstIndex: i32,
-    numIndices: i32,
+    surface_type: SurfaceType,
+    first_vert: i32,
+    num_verts: i32,
+    first_index: i32,
+    num_indices: i32,
     lightmap_num: i32,
     lightmap_x: i32,
     lightmap_y: i32,
@@ -182,8 +182,8 @@ pub const Bsp = struct {
     arena: std.heap.ArenaAllocator,
     header: BspHeader,
     shaders: BspShaders,
-    drawVertices: BspDrawVertices,
-    drawIndices: BspDrawIndices,
+    draw_vertices: BspDrawVertices,
+    draw_indices: BspDrawIndices,
     surfaces: BspSurfaces,
 
     pub fn load(allocator: std.mem.Allocator, io: std.Io, filepath: []const u8) !Bsp {
@@ -204,8 +204,8 @@ pub const Bsp = struct {
             .arena = arena,
             .header = header,
             .shaders = shaders,
-            .drawIndices = drawIndices,
-            .drawVertices = drawVertices,
+            .draw_indices = drawIndices,
+            .draw_vertices = drawVertices,
             .surfaces = surfaces,
         };
     }
