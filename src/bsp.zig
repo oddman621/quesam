@@ -195,10 +195,22 @@ pub const Bsp = struct {
         const header = BspHeader.fromBytes(bytes);
 
         var arena = std.heap.ArenaAllocator.init(allocator);
-        const drawIndices = try BspDrawIndices.init(arena.allocator(), getChunk(header, bytes, .drawindexes));
-        const drawVertices = try BspDrawVertices.init(arena.allocator(), getChunk(header, bytes, .drawverts));
-        const shaders = try BspShaders.init(arena.allocator(), getChunk(header, bytes, .shaders));
-        const surfaces = try BspSurfaces.init(arena.allocator(), getChunk(header, bytes, .surfaces));
+        const drawIndices = try BspDrawIndices.init(
+            arena.allocator(),
+            getChunk(header, bytes, .drawindexes)
+        );
+        const drawVertices = try BspDrawVertices.init(
+            arena.allocator(),
+            getChunk(header, bytes, .drawverts)
+        );
+        const shaders = try BspShaders.init(
+            arena.allocator(),
+            getChunk(header, bytes, .shaders)
+        );
+        const surfaces = try BspSurfaces.init(
+            arena.allocator(),
+            getChunk(header, bytes, .surfaces)
+        );
         
         return .{
             .arena = arena,
