@@ -13,7 +13,7 @@ pub fn runRaylibApp(allocator: std.mem.Allocator, io: std.Io) !void {
     const game_width = 320;
     const game_height = 240;
 
-    rl.initWindow(window_width, window_height, "raylib-zig [core] example - basic window");
+    rl.initWindow(window_width, window_height, "quesam");
     defer rl.closeWindow();
     rl.setTargetFPS(60);
     rl.disableCursor();
@@ -26,7 +26,7 @@ pub fn runRaylibApp(allocator: std.mem.Allocator, io: std.Io) !void {
     const test_bsp = try Bsp.load(allocator, io, "assets/maps/q3dm0.bsp");
     defer test_bsp.unload();
 
-    // TODO: raylib 독립적인 카메라 만들기?
+    // TODO: Create raylib-dependent Camera object?
     var cam = rl.Camera{
         .fovy = 45,
         .position = .init(10, 10, 10),

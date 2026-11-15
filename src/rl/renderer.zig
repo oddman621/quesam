@@ -110,7 +110,7 @@ pub const rlgl = struct {
                     bsp.draw_vertices.vertices[firstVert + @as(usize, @intCast(indices[2]))].position,
                 };
                 
-                // TODO: Temporary scaling, must be modified.
+                // TODO: Temporary scaling. BSP spatial data(including vertices) must already be scaled.
                 for (&vertices) |*position| {
                     position[0] /= 32;
                     position[1] /= 32;
