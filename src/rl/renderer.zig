@@ -1,8 +1,87 @@
 const Bsp = @import("../bsp.zig").Bsp;
 const rl = @import("raylib");
 
-pub const BspTestRenderer = struct {
-    pub fn rlglDrawBspOnlyVertexLighting(bsp: Bsp) void {
+
+
+pub const rlgl = struct {
+
+    pub const BspRenderDescriptor = struct {
+        target: rl.RenderTexture,
+        camera: rl.Camera,
+        clear_color: rl.Color,
+        bsp: Bsp,
+    };
+
+    pub fn renderBsp(descriptor: BspRenderDescriptor) void {
+
+        // DrawPass (RenderTarget)
+        {
+            
+            rl.beginTextureMode(descriptor.target);
+            defer rl.endTextureMode();
+
+            rl.clearBackground(descriptor.clear_color);
+
+
+            // TODO: Inconsistency up vector between raylib and bsp.
+            // The code below is a workaround.
+            descriptor.camera.up = .init(0, 0, 1);
+            
+            rl.beginMode3D(descriptor.camera);
+            defer rl.endMode3D();
+
+            rlglDrawBspOnlyVertexLighting(descriptor.bsp);
+        }
+
+        // DrawScreen
+        drawTargetToScreenLetterBox(descriptor.target.texture);
+    }
+    
+    fn drawTargetToScreenLetterBox(target_texture: rl.Texture) void {
+        
+        const window_width: f32 = @floatFromInt(rl.getScreenWidth());
+        const window_height: f32 = @floatFromInt(rl.getScreenHeight());
+        const texture_width: f32 = @floatFromInt(target_texture.width);
+        const texture_height: f32 = @floatFromInt(target_texture.height);
+        const game_width: f32 = texture_width;
+        const game_height: f32 = texture_height;
+        const render_scale: f32 = @min(window_width / game_width,  window_height / game_height);
+            
+        rl.beginDrawing();
+        defer rl.endDrawing();
+        rl.clearBackground(.black);
+
+        rl.drawTexturePro(
+            target_texture,
+            .{
+                .x = 0, .y = 0,
+                .width = texture_width,
+                .height = -texture_height,
+            },
+            .{
+                .x = (window_width - game_width * render_scale) * 0.5,
+                .y = (window_height - game_height * render_scale) * 0.5,
+                .width = game_width * render_scale,
+                .height = game_height * render_scale,
+            },
+            .zero(),
+            0,
+            .white,
+        );
+    }
+
+
+    fn rlglDrawBspOnlyVertexLighting(bsp: Bsp) void {
+
+        // TODO: Face cull inconsistency between raylib and bsp.
+        // The code below is a workaround.
+        rl.gl.rlEnableBackfaceCulling();
+        rl.gl.rlSetCullFace(@intFromEnum(rl.gl.rlCullMode.rl_cull_face_front));
+        defer {
+            rl.gl.rlSetCullFace(@intFromEnum(rl.gl.rlCullMode.rl_cull_face_back));
+            rl.gl.rlDisableBackfaceCulling();
+        }
+        
         rl.gl.rlSetTexture(rl.gl.rlGetTextureIdDefault());
         rl.gl.rlBegin(rl.gl.rl_triangles);
         defer rl.gl.rlEnd();
