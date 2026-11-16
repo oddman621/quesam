@@ -1,7 +1,7 @@
 const std = @import("std");
 const rl = @import("raylib");
 
-const Bsp = @import("../bsp.zig").Bsp;
+const BspRaw = @import("../bsp.zig").BspRaw;
 const RlBsp = @import("bsp.zig").RlBsp;
 //const renderer = @import("renderer.zig").rlgl;
 const renderer = @import("renderer.zig");

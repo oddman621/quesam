@@ -1,4 +1,4 @@
-const Bsp = @import("../bsp.zig").Bsp;
+const BspRaw = @import("../bsp.zig").BspRaw;
 const BspDrawVertex = @import("../bsp.zig").BspDrawVertex;
 const rl = @import("raylib");
 const RlBsp = @import("bsp.zig").RlBsp;

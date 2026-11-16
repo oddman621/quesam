@@ -178,7 +178,7 @@ pub const BspSurfaces = struct {
     }
 };
 
-pub const Bsp = struct {
+pub const BspRaw = struct {
     arena: std.heap.ArenaAllocator,
     header: BspHeader,
     shaders: BspShaders,
@@ -186,7 +186,7 @@ pub const Bsp = struct {
     draw_indices: BspDrawIndices,
     surfaces: BspSurfaces,
 
-    pub fn load(allocator: std.mem.Allocator, io: std.Io, filepath: []const u8) !Bsp {
+    pub fn load(allocator: std.mem.Allocator, io: std.Io, filepath: []const u8) !BspRaw {
         
         const cwd = std.Io.Dir.cwd();
         const bytes = try cwd.readFileAlloc(io, filepath, allocator, .unlimited);
@@ -222,7 +222,7 @@ pub const Bsp = struct {
         };
     }
 
-    pub fn unload(self: Bsp) void { self.arena.deinit(); }
+    pub fn unload(self: BspRaw) void { self.arena.deinit(); }
 
     fn getChunk(header: BspHeader, bytes: []const u8, kind: LumpKind) []const u8 {
         const lump = header.getLump(kind);

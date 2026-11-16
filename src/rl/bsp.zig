@@ -1,5 +1,5 @@
 const std = @import("std");
-const Bsp = @import("../bsp.zig").Bsp;
+const BspRaw = @import("../bsp.zig").BspRaw;
 const rl = @import("raylib");
 
 
@@ -7,10 +7,10 @@ const rl = @import("raylib");
 pub const RlBsp = struct {
     allocator: std.mem.Allocator,
     shader_textures: []?rl.Texture, // no shader case exists. ("noshader" = null)
-    bsp: Bsp,
+    bsp: BspRaw,
 
     pub fn load(allocator: std.mem.Allocator, io: std.Io, bsp_path: []const u8) !RlBsp {
-        const bsp = try Bsp.load(allocator, io, bsp_path);
+        const bsp = try BspRaw.load(allocator, io, bsp_path);
         errdefer bsp.unload();
         const shaders = bsp.shaders.shaders;
         var shader_textures = try allocator.alloc(?rl.Texture, shaders.len);
