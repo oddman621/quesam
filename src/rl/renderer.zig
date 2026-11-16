@@ -41,8 +41,6 @@ fn drawRlBsp(rl_bsp: RlBsp) void {
 
     const bsp = rl_bsp.bsp;
 
-    rl.gl.rlBegin(rl.gl.rl_triangles);
-    defer rl.gl.rlEnd();
 
     for (bsp.surfaces.surfaces) |surface| {
         switch (surface.surface_type) {
@@ -63,6 +61,10 @@ fn drawRlBsp(rl_bsp: RlBsp) void {
             rl.gl.rlSetTexture(t.id);
         }
         defer rl.gl.rlSetTexture(rl.gl.rlGetTextureIdDefault());
+
+        
+        rl.gl.rlBegin(rl.gl.rl_triangles);
+        defer rl.gl.rlEnd();
         
         var i: usize = 0;
         while (i < numIndices) : (i += 3) {
