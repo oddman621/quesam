@@ -178,51 +178,79 @@ pub const BspSurfaces = struct {
     }
 };
 
+pub const BspLightMap = [128][128][3]u8;
+
+pub const BspLightMaps = struct {
+    lightmaps: []BspLightMap,
+
+    pub fn init(allocator: std.mem.Allocator, chunk: []const u8) !BspLightMaps {
+        const stride = @sizeOf(BspLightMap); // 128 * 128 * 3 = 49152 bytes
+        const length = chunk.len / stride; 
+        const lightmaps = try allocator.alloc(BspLightMap, length);
+        @memcpy(lightmaps, std.mem.bytesAsSlice(BspLightMap, chunk));
+        return .{ .lightmaps = lightmaps };
+    }
+
+    pub fn deinit(self: BspLightMaps, allocator: std.mem.Allocator) void {
+        allocator.free(self.lightmaps);
+    }
+};
+
 pub const BspRaw = struct {
-    arena: std.heap.ArenaAllocator,
+    allocator: std.mem.Allocator,
     header: BspHeader,
     shaders: BspShaders,
     draw_vertices: BspDrawVertices,
     draw_indices: BspDrawIndices,
     surfaces: BspSurfaces,
+    lightmaps: BspLightMaps,
 
     pub fn load(allocator: std.mem.Allocator, io: std.Io, filepath: []const u8) !BspRaw {
-        
         const cwd = std.Io.Dir.cwd();
         const bytes = try cwd.readFileAlloc(io, filepath, allocator, .unlimited);
         defer allocator.free(bytes);
         
         const header = BspHeader.fromBytes(bytes);
 
-        var arena = std.heap.ArenaAllocator.init(allocator);
         const drawIndices = try BspDrawIndices.init(
-            arena.allocator(),
+            allocator,
             getChunk(header, bytes, .drawindexes)
         );
         const drawVertices = try BspDrawVertices.init(
-            arena.allocator(),
+            allocator,
             getChunk(header, bytes, .drawverts)
         );
         const shaders = try BspShaders.init(
-            arena.allocator(),
+            allocator,
             getChunk(header, bytes, .shaders)
         );
         const surfaces = try BspSurfaces.init(
-            arena.allocator(),
+            allocator,
             getChunk(header, bytes, .surfaces)
+        );
+        const lightmaps = try BspLightMaps.init(
+            allocator,
+            getChunk(header, bytes, .lightmaps)
         );
         
         return .{
-            .arena = arena,
+            .allocator = allocator,
             .header = header,
             .shaders = shaders,
             .draw_indices = drawIndices,
             .draw_vertices = drawVertices,
             .surfaces = surfaces,
+            .lightmaps = lightmaps,
         };
     }
 
-    pub fn unload(self: BspRaw) void { self.arena.deinit(); }
+    pub fn unload(self: BspRaw) void {
+        self.shaders.deinit(self.allocator);
+        self.draw_vertices.deinit(self.allocator);
+        self.draw_indices.deinit(self.allocator);
+        self.surfaces.deinit(self.allocator);
+        self.lightmaps.deinit(self.allocator);
+    }
 
     fn getChunk(header: BspHeader, bytes: []const u8, kind: LumpKind) []const u8 {
         const lump = header.getLump(kind);

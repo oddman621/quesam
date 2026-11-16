@@ -25,7 +25,7 @@ pub fn runRaylibApp(allocator: std.mem.Allocator, io: std.Io) !void {
     defer rl.unloadRenderTexture(target);
     rl.setTextureFilter(target.texture, .point);
 
-    const test_bsp = try RlBsp.load(allocator, io, "assets/maps/level.bsp");
+    const test_bsp = try RlBsp.load(allocator, io, "assets/maps/q3dm3.bsp");
     defer test_bsp.unload();
     test_bsp.setTextureFilter(.bilinear);
 
