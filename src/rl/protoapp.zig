@@ -2,9 +2,7 @@ const std = @import("std");
 const rl = @import("raylib");
 
 const BspRaw = @import("../bsp.zig").BspRaw;
-const RlBsp = @import("bsp.zig").RlBsp;
-//const renderer = @import("renderer.zig").rlgl;
-const renderer = @import("renderer.zig");
+const BspGlRenderer = @import("renderer.zig").BspGlRenderer;
 
 const camera = @import("camera.zig");
 
@@ -25,9 +23,12 @@ pub fn runRaylibApp(allocator: std.mem.Allocator, io: std.Io) !void {
     defer rl.unloadRenderTexture(target);
     rl.setTextureFilter(target.texture, .point);
 
-    const test_bsp = try RlBsp.load(allocator, io, "assets/maps/q3dm3.bsp");
-    defer test_bsp.unload();
-    test_bsp.setTextureFilter(.bilinear);
+    const bsp_raw = try BspRaw.load(allocator, io, "assets/maps/q3dm3.bsp");
+    defer bsp_raw.unload();
+
+    const renderer = try BspGlRenderer.init(allocator, io, bsp_raw);
+    defer renderer.deinit(allocator);
+    renderer.setTextureFilter(.bilinear);
 
     // TODO: Create raylib-dependent Camera object?
     var cam = rl.Camera{
@@ -51,15 +52,56 @@ pub fn runRaylibApp(allocator: std.mem.Allocator, io: std.Io) !void {
         cam = camera.cameraFreeLook(cam, .{ .sensitivity = 10 });
         if (rl.isKeyPressed(.z)) {
             cam.position = .zero();
-            cam.target = .init(0, 0, -1);
+            //cam.target = .init(0, 0, -1);
+            cam.target = .init(1, 0, 0);
         }
-        
-        renderer.renderRlBsp(.{
-            .target = target,
-            .camera = cam,
-            .clear_color = .dark_green,
-            .rl_bsp = test_bsp,
-        });
+
+        // Draw Render Target
+        {
+            rl.beginTextureMode(target);
+            defer rl.endTextureMode();
+
+            rl.beginMode3D(cam);
+            defer rl.endMode3D();
+
+            rl.clearBackground(.dark_green);
+            renderer.render();
+        }
+
+        // Draw Screen
+        {
+            rl.beginDrawing();
+            defer rl.endDrawing();
+
+            rl.clearBackground(.black);
+
+            const target_texture = target.texture;
+            const window_width_f: f32 = @floatFromInt(rl.getScreenWidth());
+            const window_height_f: f32 = @floatFromInt(rl.getScreenHeight());
+            const texture_width_f: f32 = @floatFromInt(target_texture.width);
+            const texture_height_f: f32 = @floatFromInt(target_texture.height);
+            const game_width_f: f32 = texture_width_f;
+            const game_height_f: f32 = texture_height_f;
+            const render_scale: f32 = @min(window_width_f / game_width_f,  window_height_f / game_height_f);
+
+            rl.drawTexturePro(
+                target_texture,
+                .{
+                    .x = 0, .y = 0,
+                    .width = texture_width_f,
+                    .height = -texture_height_f,
+                },
+                .{
+                    .x = (window_width_f - game_width_f * render_scale) * 0.5,
+                    .y = (window_height_f - game_height_f * render_scale) * 0.5,
+                    .width = game_width_f * render_scale,
+                    .height = game_height_f * render_scale,
+                },
+                .zero(),
+                0,
+                .white,
+            );
+        }
     }
 }
 
