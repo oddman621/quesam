@@ -2,9 +2,10 @@ const std = @import("std");
 
 // Q3BSP has 4 datatype, converting into Zig: u8, i32, f32, [:0]u8
 
+// `shaders`(should be `materials`) and `fogs`(should be `fogvolumes`), these two are confusing...
 pub const LumpKind = enum(usize) {
     entities = 0,
-    shaders = 1, // Texture Infos
+    shaders = 1, // Texture(Material) Infos
     planes = 2, // splitting planes
     nodes = 3, // BSP nodes
     leafs = 4,
@@ -15,7 +16,7 @@ pub const LumpKind = enum(usize) {
     brushsides = 9, // brush surface info
     drawverts = 10, // level vertices
     drawindexes = 11, // indices for vertex triangles
-    fogs = 12,
+    fogs = 12, // fogvolumes(including shader)
     surfaces = 13, // render face info
     lightmaps = 14,
     lightgrid = 15,
@@ -61,6 +62,17 @@ pub const BspHeader = struct {
     }
 };
 
+pub const BspEntities = struct {
+    str_entities: []const u8,
+
+    pub fn init(allocator: std.mem.Allocator, chunk: []const u8) !BspEntities {
+        return .{ .str_entities = try allocator.dupe(u8, chunk) };
+    }
+    pub fn deinit(self: BspEntities, allocator: std.mem.Allocator) void {
+        allocator.free(self.str_entities);
+    }
+};
+
 pub const BspShader = struct {
     path: [:0]const u8, // null-terminated for raylib compatibility.
     surface_flags: u32,
@@ -93,6 +105,162 @@ pub const BspShaders = struct {
             allocator.free(shader.path);
         }
         allocator.free(self.shaders);
+    }
+};
+
+pub const BspPlane = extern struct {
+    normal: [3]f32,
+    distance: f32,
+};
+
+pub const BspPlanes = struct {
+    planes: []BspPlane,
+
+    pub fn init(allocator: std.mem.Allocator, chunk: []const u8) !BspPlanes {
+        const planes = try allocator.dupe(BspPlane, @alignCast(std.mem.bytesAsSlice(BspPlane, chunk)));
+        return .{ .planes = planes };
+    }
+
+    pub fn deinit(self: BspPlanes, allocator: std.mem.Allocator) void {
+        allocator.free(self.planes);
+    }
+};
+
+pub const BspNode = extern struct {
+    plane_num: i32,
+    children: [2]i32,
+    mins: [3]i32,
+    maxs: [3]i32,
+};
+
+pub const BspNodes = struct {
+    nodes: []BspNode,
+
+    pub fn init(allocator: std.mem.Allocator, chunk: []const u8) !BspNodes {
+        const nodes = try allocator.dupe(BspNode, @alignCast(std.mem.bytesAsSlice(BspNode, chunk)));
+        return .{ .nodes = nodes };
+    }
+
+    pub fn deinit(self: BspNodes, allocator: std.mem.Allocator) void {
+        allocator.free(self.nodes);
+    }
+};
+
+pub const BspLeaf = extern struct {
+    cluster: i32,
+    area: i32,
+
+    mins: [3]i32,
+    maxs: [3]i32,
+
+    first_leaf_surface: i32,
+    num_leaf_surfaces: i32,
+
+    first_leaf_brush: i32,
+    num_leaf_brushes: i32,
+};
+
+pub const BspLeaves = struct {
+    leaves: []BspLeaf,
+
+    pub fn init(allocator: std.mem.Allocator, chunk: []const u8) !BspLeaves {
+        const leaves = try allocator.dupe(BspLeaf, @alignCast(std.mem.bytesAsSlice(BspLeaf, chunk)));
+        return .{ .leaves = leaves };
+    }
+
+    pub fn deinit(self: BspLeaves, allocator: std.mem.Allocator) void {
+        allocator.free(self.leaves);
+    }
+};
+
+pub const BspLeafSurface = i32;
+
+pub const BspLeafSurfaces = struct {
+    leaf_surfaces: []BspLeafSurface,
+
+    pub fn init(allocator: std.mem.Allocator, chunk: []const u8) !BspLeafSurfaces {
+        const leaf_surfaces = try allocator.dupe(BspLeafSurface, @alignCast(std.mem.bytesAsSlice(BspLeafSurface, chunk)));
+        return .{ .leaf_surfaces = leaf_surfaces };
+    }
+
+    pub fn deinit(self: BspLeafSurfaces, allocator: std.mem.Allocator) void {
+        allocator.free(self.leaf_surfaces);
+    }
+};
+
+pub const BspLeafBrush = i32;
+
+pub const BspLeafBrushes = struct {
+    leaf_brushes: []BspLeafBrush,
+
+    pub fn init(allocator: std.mem.Allocator, chunk: []const u8) !BspLeafBrushes {
+        const leaf_brushes = try allocator.dupe(BspLeafBrush, @alignCast(std.mem.bytesAsSlice(BspLeafBrush, chunk)));
+        return .{ .leaf_brushes = leaf_brushes };
+    }
+
+    pub fn deinit(self: BspLeafBrushes, allocator: std.mem.Allocator) void {
+        allocator.free(self.leaf_brushes);
+    }
+};
+
+pub const BspModel = extern struct {
+    min: [3]f32,
+    max: [3]f32,
+    first_surface: i32,
+    surface_num: i32,
+    first_brush: i32,
+    brush_num: i32,
+};
+
+pub const BspModels = struct {
+    models: []BspModel,
+
+    pub fn init(allocator: std.mem.Allocator, chunk: []const u8) !BspModels {
+        const models = try allocator.dupe(BspModel, @alignCast(std.mem.bytesAsSlice(BspModel, chunk)));
+        return .{ .models = models };
+    }
+    pub fn deinit(self: BspModels, allocator: std.mem.Allocator) void {
+        allocator.free(self.models);
+    }
+};
+
+pub const BspBrush = extern struct {
+    first_side: i32,
+    num_sides: i32,
+    shader_num: i32,
+};
+
+pub const BspBrushes = struct {
+    brushes: []BspBrush,
+
+    pub fn init(allocator: std.mem.Allocator, chunk: []const u8) !BspBrushes {
+        const brushes = try allocator.dupe(BspBrush, @alignCast(std.mem.bytesAsSlice(BspBrush, chunk)));
+        return .{ .brushes = brushes };
+    }
+
+    pub fn deinit(self: BspBrushes, allocator: std.mem.Allocator) void {
+        allocator.free(self.brushes);
+    }
+};
+
+pub const BspBrushSide = extern struct {
+    plane_num: i32,
+    shader_num: i32,
+};
+
+pub const BspBrushSides = struct {
+    brush_sides: []BspBrushSide,
+
+    pub fn init(allocator: std.mem.Allocator, chunk: []const u8) !BspBrushSides {
+        const brush_sides = try allocator.dupe(
+            BspBrushSide,
+            @alignCast(std.mem.bytesAsSlice(BspBrushSide, chunk))
+        );
+        return .{ .brush_sides = brush_sides };
+    }
+    
+    pub fn deinit(self: BspBrushSides, allocator: std.mem.Allocator) void {
+        allocator.free(self.brush_sides);
     }
 };
 
@@ -149,6 +317,48 @@ pub const BspDrawIndices = struct {
     
     pub fn deinit(self: BspDrawIndices, allocator: std.mem.Allocator) void {
         allocator.free(self.indices);
+    }
+};
+
+pub const BspFog = struct {
+    shader: [:0]const u8,
+    brush_num: i32,
+    visible_side: i32, // unknown, the value is almost always 5
+};
+
+pub const BspFogs = struct {
+    fogs: []BspFog,
+
+    pub fn init(allocator: std.mem.Allocator, chunk: []const u8) !BspFogs {
+        const max_qpath = 64; // common/qfiles.h 36: #define MAX_QPATH 64
+        const stride = max_qpath + 4 + 4;
+        if (chunk.len % stride != 0) return error.InvalidChunkSize;
+        const length = chunk.len / stride;
+        var fogs = try allocator.alloc(BspFog, length);
+        errdefer allocator.free(fogs);
+
+        var i: usize = 0;
+        errdefer {
+            for (0..i) |j| {
+                allocator.free(fogs[j].shader);
+            }
+        }
+        while(i < length) : (i += 1) {
+            const offset = stride * i;
+            const shader: []const u8 = std.mem.sliceTo(chunk[offset..offset+max_qpath].ptr, 0);
+            fogs[i].shader = try allocator.dupeSentinel(u8, shader, 0);
+            fogs[i].brush_num = std.mem.readInt(i32, chunk[offset+max_qpath..][0..4], .little);
+            fogs[i].visible_side = std.mem.readInt(i32, chunk[offset+max_qpath..][4..8], .little);
+        }
+
+        return .{ .fogs = fogs };
+    }
+
+    pub fn deinit(self: BspFogs, allocator: std.mem.Allocator) void {
+        for (self.fogs) |fog| {
+            allocator.free(fog.shader);
+        }
+        allocator.free(self.fogs);
     }
 };
 
@@ -212,14 +422,76 @@ pub const BspLightMaps = struct {
     }
 };
 
+pub const BspLightGrid = extern struct { // 8 Bytes
+    ambient: [3]u8,
+    directional: [3]u8,
+    lat_long: [2]u8,
+};
+
+pub const BspLightGrids = struct {
+    light_grids: []BspLightGrid, // index = x + len_x * (y + len_y * z) => [z][y][x]lightgrid
+
+    pub fn init(
+        allocator: std.mem.Allocator,
+        chunk: []const u8
+    ) !BspLightGrids {
+        const light_grids = try allocator.dupe(
+            BspLightGrid,
+            std.mem.bytesAsSlice(BspLightGrid, chunk)
+        );
+        return .{ .light_grids = light_grids };
+    }
+    
+    pub fn deinit(self: BspLightGrids, allocator: std.mem.Allocator) void {
+        allocator.free(self.light_grids);
+    }
+};
+
+pub const BspVisibility = struct {
+    // Header
+    vecs_num: i32, // numClusters
+    vec_size: i32, // bytesPerCluster
+
+    // Data
+    vecs: []u8, // PVS (len = vecs_num * vec_size)
+
+    pub fn init(allocator: std.mem.Allocator, chunk: []const u8) !BspVisibility {
+        const vecs_num = std.mem.readInt(i32, chunk[0..4], .little);
+        const vec_size = std.mem.readInt(i32, chunk[4..8], .little);
+        const vecs = try allocator.dupe(u8, chunk[8..]);
+
+        return .{
+            .vecs_num = vecs_num,
+            .vec_size = vec_size,
+            .vecs = vecs,
+        };
+    }
+
+    pub fn deinit(self: BspVisibility, allocator: std.mem.Allocator) void {
+        allocator.free(self.vecs);
+    }
+};
+
 pub const BspRaw = struct {
-    allocator: std.mem.Allocator,
     header: BspHeader,
+
+    entities: BspEntities,
     shaders: BspShaders,
+    planes: BspPlanes,
+    nodes: BspNodes,
+    leaves: BspLeaves,
+    leaf_surfaces: BspLeafSurfaces,
+    leaf_brushes: BspLeafBrushes,
+    models: BspModels,
+    brushes: BspBrushes,
+    brush_sides: BspBrushSides,
     draw_vertices: BspDrawVertices,
     draw_indices: BspDrawIndices,
+    fogs: BspFogs,
     surfaces: BspSurfaces,
     lightmaps: BspLightMaps,
+    lightgrids: BspLightGrids,
+    visibility: BspVisibility,
 
     pub fn load(allocator: std.mem.Allocator, io: std.Io, filepath: []const u8) !BspRaw {
         const cwd = std.Io.Dir.cwd();
@@ -228,17 +500,57 @@ pub const BspRaw = struct {
         
         const header = BspHeader.fromBytes(bytes);
 
-        const drawIndices = try BspDrawIndices.init(
+        const entities = try BspEntities.init(
             allocator,
-            getChunk(header, bytes, .drawindexes)
+            getChunk(header, bytes, .entities)
+        );
+        const shaders = try BspShaders.init(
+            allocator,
+            getChunk(header, bytes, .shaders)
+        );
+        const planes = try BspPlanes.init(
+            allocator,
+            getChunk(header, bytes, .planes)
+        );
+        const nodes = try BspNodes.init(
+            allocator,
+            getChunk(header, bytes, .nodes)
+        );
+        const leaves = try BspLeaves.init(
+            allocator,
+            getChunk(header, bytes, .leafs)
+        );
+        const leaf_surfaces = try BspLeafSurfaces.init(
+            allocator,
+            getChunk(header, bytes, .leafsurfaces)
+        );
+        const leaf_brushes = try BspLeafBrushes.init(
+            allocator,
+            getChunk(header, bytes, .leafbrushes)
+        );
+        const models = try BspModels.init(
+            allocator,
+            getChunk(header, bytes, .models)
+        );
+        const brushes = try BspBrushes.init(
+            allocator,
+            getChunk(header, bytes, .brushes)
+        );
+        const brush_sides = try BspBrushSides.init(
+            allocator,
+            getChunk(header, bytes, .brushsides)
         );
         const drawVertices = try BspDrawVertices.init(
             allocator,
             getChunk(header, bytes, .drawverts)
         );
-        const shaders = try BspShaders.init(
+        const drawIndices = try BspDrawIndices.init(
             allocator,
-            getChunk(header, bytes, .shaders)
+            getChunk(header, bytes, .drawindexes)
+        );
+        const fogs = try BspFogs.init(
+            allocator,
+            getChunk(header, bytes, .fogs)
         );
         const surfaces = try BspSurfaces.init(
             allocator,
@@ -248,24 +560,55 @@ pub const BspRaw = struct {
             allocator,
             getChunk(header, bytes, .lightmaps)
         );
+        const lightgrids = try BspLightGrids.init(
+            allocator,
+            getChunk(header, bytes, .lightgrid)
+        );
+        const visibility = try BspVisibility.init(
+            allocator,
+            getChunk(header, bytes, .visibility)
+        );
         
         return .{
-            .allocator = allocator,
             .header = header,
+            .entities = entities,
             .shaders = shaders,
+            .planes = planes,
+            .nodes = nodes,
+            .leaves = leaves,
+            .leaf_surfaces = leaf_surfaces,
+            .leaf_brushes = leaf_brushes,
+            .models = models,
+            .brushes = brushes,
+            .brush_sides = brush_sides,
             .draw_indices = drawIndices,
             .draw_vertices = drawVertices,
+            .fogs = fogs,
             .surfaces = surfaces,
             .lightmaps = lightmaps,
+            .lightgrids = lightgrids,
+            .visibility = visibility,
         };
     }
 
-    pub fn unload(self: BspRaw) void {
-        self.shaders.deinit(self.allocator);
-        self.draw_vertices.deinit(self.allocator);
-        self.draw_indices.deinit(self.allocator);
-        self.surfaces.deinit(self.allocator);
-        self.lightmaps.deinit(self.allocator);
+    pub fn unload(self: BspRaw, allocator: std.mem.Allocator) void {
+        self.entities.deinit(allocator);
+        self.shaders.deinit(allocator);
+        self.planes.deinit(allocator);
+        self.nodes.deinit(allocator);
+        self.leaves.deinit(allocator);
+        self.leaf_surfaces.deinit(allocator);
+        self.leaf_brushes.deinit(allocator);
+        self.models.deinit(allocator);
+        self.brushes.deinit(allocator);
+        self.brush_sides.deinit(allocator);
+        self.draw_vertices.deinit(allocator);
+        self.draw_indices.deinit(allocator);
+        self.fogs.deinit(allocator);
+        self.surfaces.deinit(allocator);
+        self.lightmaps.deinit(allocator);
+        self.lightgrids.deinit(allocator);
+        self.visibility.deinit(allocator);
     }
 
     fn getChunk(header: BspHeader, bytes: []const u8, kind: LumpKind) []const u8 {
@@ -277,7 +620,7 @@ pub const BspRaw = struct {
 
 
 
-
+// TODO: Move this namespace to another module.
 pub const bsp_render = struct {
 
     // Regroup BSP's data into `Dictionary{(shader, lightmap): T}`.
@@ -396,3 +739,18 @@ pub const bsp_render = struct {
         }
     };
 };
+
+test "[BspRaw] q3dm3" {
+    const allocator = std.testing.allocator;
+    const io = std.testing.io;
+
+    const bsp_raw = try BspRaw.load(allocator, io, "assets/maps/q3dm3.bsp");
+    defer bsp_raw.unload(allocator);
+
+    // Visibility Test
+    const visibility = bsp_raw.visibility;
+    const expect_length = visibility.vec_size * visibility.vecs_num;
+    const actual_length = @as(i32, @intCast(visibility.vecs.len));
+    try std.testing.expectEqual(expect_length, actual_length);
+    
+}
