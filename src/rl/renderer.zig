@@ -1,11 +1,12 @@
 const std = @import("std");
 const rl = @import("raylib");
-const bsp = @import ("../bsp.zig");
+const bsp = @import("../bsp/raw.zig");
+const bsp_render = @import("../bsp/render.zig");
 
 const gl = rl.gl;
 const BspRaw = bsp.BspRaw;
-const Meshes = bsp.bsp_render.Meshes;
-const Vertex = bsp.bsp_render.Vertex;
+const Meshes = bsp_render.Meshes;
+const Vertex = bsp_render.Vertex;
 
 pub const BspGlRenderer = struct {
     vao: u32,
@@ -20,7 +21,7 @@ pub const BspGlRenderer = struct {
     draw_elements_fn: DrawElementsFn,
 
     meshes: Meshes,
-    
+
     shader_textures: []?rl.Texture, // "noshader" would be `null`.
     lightmap_textures: []rl.Texture,
 
@@ -30,29 +31,28 @@ pub const BspGlRenderer = struct {
         // TODO: Face cull inconsistency between raylib and bsp.
         // The code below is a workaround.
         gl.rlEnableBackfaceCulling();
-        gl.rlSetCullFace(@intFromEnum(rl.gl.rlCullMode.rl_cull_face_front));
+        gl.rlSetCullFace(@backingInt(rl.gl.rlCullMode.rl_cull_face_front));
         defer {
-            gl.rlSetCullFace(@intFromEnum(rl.gl.rlCullMode.rl_cull_face_back));
+            gl.rlSetCullFace(@backingInt(rl.gl.rlCullMode.rl_cull_face_back));
             gl.rlDisableBackfaceCulling();
         }
-        
+
         const projection = gl.rlGetMatrixProjection();
         const view = gl.rlGetMatrixModelview();
-        
+
         if (!gl.rlEnableVertexArray(self.vao)) std.debug.print("FAILED to EnableVertexArray(rl/renderer.zig:42)\n", .{});
         gl.rlEnableShader(self.shader.id);
         defer {
             gl.rlDisableShader();
             gl.rlDisableVertexArray();
         }
-        
+
         gl.rlSetUniformMatrix(self.shaderloc_projection, projection);
         gl.rlSetUniformMatrix(self.shaderloc_view, view);
         const diffuse_slot: i32 = 0;
         const lightmap_slot: i32 = 1;
         rl.setShaderValue(self.shader, self.shaderloc_diffuse_map, &diffuse_slot, .sampler2d);
         rl.setShaderValue(self.shader, self.shaderloc_lightmap_map, &lightmap_slot, .sampler2d);
-
 
         defer {
             gl.rlActiveTextureSlot(lightmap_slot);
@@ -64,9 +64,9 @@ pub const BspGlRenderer = struct {
         const white_texture_id = gl.rlGetTextureIdDefault();
         const GL_TRIANGLES = 0x0004;
         const GL_UNSIGNED_INT = 0x1405;
-        for(self.meshes.mesh_infos) |mesh_info| {
-            const difftex_id = if(self.shader_textures[@intCast(mesh_info.shader_num)]) |difftex| difftex.id else continue; // Missing diffuse texture: skipping.
-            const lighttex_id = if(mesh_info.lightmap_num != -1) self.lightmap_textures[@intCast(mesh_info.lightmap_num)].id else white_texture_id; // I don't know when lightmap is none... Set fullbright(white texture) in this case.
+        for (self.meshes.mesh_infos) |mesh_info| {
+            const difftex_id = if (self.shader_textures[@intCast(mesh_info.shader_num)]) |difftex| difftex.id else continue; // Missing diffuse texture: skipping.
+            const lighttex_id = if (mesh_info.lightmap_num != -1) self.lightmap_textures[@intCast(mesh_info.lightmap_num)].id else white_texture_id; // I don't know when lightmap is none... Set fullbright(white texture) in this case.
 
             gl.rlActiveTextureSlot(diffuse_slot);
             gl.rlEnableTexture(difftex_id);
@@ -81,9 +81,8 @@ pub const BspGlRenderer = struct {
                 if (ebo_byte_offset != 0) @ptrFromInt(ebo_byte_offset) else null, // Since EBO is binded, this parameter is the byte offset of EBO.
             );
         }
-        
     }
-    
+
     pub fn init(allocator: std.mem.Allocator, io: std.Io, bsp_raw: BspRaw) !BspGlRenderer {
         const meshes = try Meshes.init(
             allocator,
@@ -92,22 +91,14 @@ pub const BspGlRenderer = struct {
             bsp_raw.draw_indices,
         );
         errdefer meshes.deinit(allocator);
-        
+
         const vao = gl.rlLoadVertexArray();
         errdefer gl.rlUnloadVertexArray(vao);
         if (!gl.rlEnableVertexArray(vao)) return error.FailedToEnableVertexArray;
-        
-        const vbo = gl.rlLoadVertexBuffer(
-            @ptrCast(meshes.vertices.ptr),
-            @intCast(meshes.vertices.len * @sizeOf(Vertex)),
-            false
-        );
+
+        const vbo = gl.rlLoadVertexBuffer(@ptrCast(meshes.vertices.ptr), @intCast(meshes.vertices.len * @sizeOf(Vertex)), false);
         errdefer gl.rlUnloadVertexBuffer(vbo);
-        const ebo = gl.rlLoadVertexBufferElement(
-            @ptrCast(meshes.indices.ptr),
-            @intCast(meshes.indices.len * @sizeOf(u32)),
-            false
-        );
+        const ebo = gl.rlLoadVertexBufferElement(@ptrCast(meshes.indices.ptr), @intCast(meshes.indices.len * @sizeOf(u32)), false);
         errdefer gl.rlUnloadVertexBuffer(ebo);
 
         gl.rlEnableVertexBuffer(vbo);
@@ -121,54 +112,19 @@ pub const BspGlRenderer = struct {
         gl.rlEnableVertexAttribute(5);
 
         // 0: Position
-        gl.rlSetVertexAttribute(
-            0,
-            Vertex.len_position,
-            gl.rl_float,
-            false,
-            Vertex.stride,
-            Vertex.offset_position
-        );
+        gl.rlSetVertexAttribute(0, Vertex.len_position, gl.rl_float, false, Vertex.stride, Vertex.offset_position);
 
         // 1: Diffuse UV
-        gl.rlSetVertexAttribute(
-            1,
-            Vertex.len_texcoord0,
-            gl.rl_float,
-            false,
-            Vertex.stride,
-            Vertex.offset_texcoord0
-        );
+        gl.rlSetVertexAttribute(1, Vertex.len_texcoord0, gl.rl_float, false, Vertex.stride, Vertex.offset_texcoord0);
 
         // 2: Normal
-        gl.rlSetVertexAttribute(
-            2,
-            Vertex.len_normal,
-            gl.rl_float,
-            false,
-            Vertex.stride,
-            Vertex.offset_normal
-        );
+        gl.rlSetVertexAttribute(2, Vertex.len_normal, gl.rl_float, false, Vertex.stride, Vertex.offset_normal);
 
         // 3: Color
-        gl.rlSetVertexAttribute(
-            3,
-            Vertex.len_color,
-            gl.rl_unsigned_byte,
-            true,
-            Vertex.stride,
-            Vertex.offset_color
-        );
+        gl.rlSetVertexAttribute(3, Vertex.len_color, gl.rl_unsigned_byte, true, Vertex.stride, Vertex.offset_color);
 
         // 5: Lightmap UV
-        gl.rlSetVertexAttribute(
-            5,
-            Vertex.len_texcoord1,
-            gl.rl_float,
-            false,
-            Vertex.stride,
-            Vertex.offset_texcoord1
-        );
+        gl.rlSetVertexAttribute(5, Vertex.len_texcoord1, gl.rl_float, false, Vertex.stride, Vertex.offset_texcoord1);
 
         gl.rlEnableVertexBufferElement(ebo);
         gl.rlDisableVertexArray();
@@ -186,7 +142,7 @@ pub const BspGlRenderer = struct {
             allocator.free(shader_textures);
         }
         for (0..shaders.len) |i| {
-            if(std.mem.eql(u8, shaders[i].path, "noshader")) {
+            if (std.mem.eql(u8, shaders[i].path, "noshader")) {
                 shader_textures[i] = null;
             } else {
                 shader_textures[i] = try rl_texture.loadTextureFromBspShaderPath(io, shaders[i].path);
@@ -198,7 +154,7 @@ pub const BspGlRenderer = struct {
         const lightmap_textures = try allocator.alloc(rl.Texture, lightmaps.len);
         var i: usize = 0;
         errdefer {
-            for(0..i) |j| {
+            for (0..i) |j| {
                 rl.unloadTexture(lightmap_textures[j]);
             }
             allocator.free(lightmap_textures);
@@ -239,7 +195,7 @@ pub const BspGlRenderer = struct {
             .shaderloc_lightmap_map = shaderloc_lightmap_map,
 
             .draw_elements_fn = draw_elements_fn,
-            
+
             .meshes = meshes,
             .shader_textures = shader_textures,
             .lightmap_textures = lightmap_textures,
@@ -260,11 +216,10 @@ pub const BspGlRenderer = struct {
         }
         rl.unloadShader(self.shader);
         allocator.free(self.lightmap_textures);
-        
+
         gl.rlUnloadVertexBuffer(self.ebo);
         gl.rlUnloadVertexBuffer(self.vbo);
         gl.rlUnloadVertexArray(self.vao);
-
     }
 
     pub fn setTextureFilter(self: BspGlRenderer, filter: rl.TextureFilter) void {
@@ -326,7 +281,7 @@ pub const BspGlRenderer = struct {
         \\    );
         \\}
     ;
-    
+
     const DrawElementsFn = *const fn (
         mode: u32,
         count: i32,
@@ -337,7 +292,7 @@ pub const BspGlRenderer = struct {
 
 const rl_texture = struct {
     fn loadTextureRaw(data: []u8, width: i32, height: i32, format: rl.PixelFormat) !rl.Texture2D {
-        const image = rl.Image {
+        const image = rl.Image{
             .data = data.ptr,
             .format = format,
             .width = width,
@@ -356,20 +311,14 @@ const rl_texture = struct {
             const pathz = try arena.allocator().dupeSentinel(u8, path, 0);
             return rl.loadTexture(pathz);
         } else {
-            std.debug.print("ERROR: failed to load image file: {s}\n", .{ shader_path });
+            std.debug.print("ERROR: failed to load image file: {s}\n", .{shader_path});
             return rl.loadTexture("assets/textures/_engine/missing.png");
             //return error.FileNotFound;
         }
     }
 
     fn findImageFile(allocator: std.mem.Allocator, io: std.Io, shader_path: []const u8, basepath: ?[]const u8) !?[]u8 {
-        const dir_path = try std.Io.Dir.path.join(
-            allocator,
-            &.{
-                basepath orelse ".",
-                std.Io.Dir.path.dirname(shader_path) orelse "."
-            }
-        );
+        const dir_path = try std.Io.Dir.path.join(allocator, &.{ basepath orelse ".", std.Io.Dir.path.dirname(shader_path) orelse "." });
         defer allocator.free(dir_path);
         const basename = std.Io.Dir.path.basename(shader_path);
         const cwd = std.Io.Dir.cwd();
@@ -377,7 +326,7 @@ const rl_texture = struct {
         var dir = try cwd.openDir(io, dir_path, .{ .iterate = true });
         defer dir.close(io);
 
-        const supported_extensions = [_][]const u8 { ".jpg", ".png", ".tga" };
+        const supported_extensions = [_][]const u8{ ".jpg", ".png", ".tga" };
         var it = dir.iterate();
         while (try it.next(io)) |entry| {
             if (entry.kind != .file) continue;
@@ -385,14 +334,11 @@ const rl_texture = struct {
             if (entry.name[basename.len] != '.') continue;
 
             const ext = std.fs.path.extension(entry.name);
-            for(supported_extensions) |sup_ext| {
+            for (supported_extensions) |sup_ext| {
                 if (std.mem.eql(u8, ext, sup_ext)) {
                     return try std.Io.Dir.path.join(
                         allocator,
-                        &.{
-                            dir_path,
-                            entry.name
-                        },
+                        &.{ dir_path, entry.name },
                     );
                 }
             }

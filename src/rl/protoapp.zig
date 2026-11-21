@@ -1,11 +1,10 @@
 const std = @import("std");
 const rl = @import("raylib");
 
-const BspRaw = @import("../bsp.zig").BspRaw;
+const BspRaw = @import("../bsp/raw.zig").BspRaw;
 const BspGlRenderer = @import("renderer.zig").BspGlRenderer;
 
 const camera = @import("camera.zig");
-
 
 pub fn runRaylibApp(allocator: std.mem.Allocator, io: std.Io) !void {
     const window_width = 1920;
@@ -35,13 +34,13 @@ pub fn runRaylibApp(allocator: std.mem.Allocator, io: std.Io) !void {
         .fovy = 45,
         .position = .init(10, 10, 10),
         .projection = .perspective,
-        .up = .init(0, 0, 1),  // TODO: Inconsistency up vector between raylib and bsp.
+        .up = .init(0, 0, 1), // TODO: Inconsistency up vector between raylib and bsp.
         .target = .zero(),
     };
 
     // Set exit key for convenience
     rl.setExitKey(.escape);
-    
+
     // Main game loop
     while (!rl.windowShouldClose()) {
 
@@ -82,12 +81,13 @@ pub fn runRaylibApp(allocator: std.mem.Allocator, io: std.Io) !void {
             const texture_height_f: f32 = @floatFromInt(target_texture.height);
             const game_width_f: f32 = texture_width_f;
             const game_height_f: f32 = texture_height_f;
-            const render_scale: f32 = @min(window_width_f / game_width_f,  window_height_f / game_height_f);
+            const render_scale: f32 = @min(window_width_f / game_width_f, window_height_f / game_height_f);
 
             rl.drawTexturePro(
                 target_texture,
                 .{
-                    .x = 0, .y = 0,
+                    .x = 0,
+                    .y = 0,
                     .width = texture_width_f,
                     .height = -texture_height_f,
                 },
@@ -104,4 +104,3 @@ pub fn runRaylibApp(allocator: std.mem.Allocator, io: std.Io) !void {
         }
     }
 }
-
