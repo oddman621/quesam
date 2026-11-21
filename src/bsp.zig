@@ -63,10 +63,10 @@ pub const BspHeader = struct {
 };
 
 pub const BspEntities = struct {
-    str_entities: []const u8,
+    str_entities: [:0]const u8,
 
     pub fn init(allocator: std.mem.Allocator, chunk: []const u8) !BspEntities {
-        return .{ .str_entities = try allocator.dupe(u8, chunk) };
+        return .{ .str_entities = try allocator.dupeSentinel(u8, chunk, 0) };
     }
     pub fn deinit(self: BspEntities, allocator: std.mem.Allocator) void {
         allocator.free(self.str_entities);

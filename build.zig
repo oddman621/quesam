@@ -20,6 +20,7 @@ pub fn build(b: *std.Build) void {
             },
         }),
     });
+    exe.root_module.link_libc = true; // For Janet Requirement
     b.installArtifact(exe);
 
     const raylib_dep = b.dependency("raylib_zig", .{
@@ -27,6 +28,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    // Raylib
     const raylib = raylib_dep.module("raylib"); // main raylib module
     const raygui = raylib_dep.module("raygui"); // raygui module
     const raylib_artifact = raylib_dep.artifact("raylib"); // raylib C library
@@ -37,6 +39,29 @@ pub fn build(b: *std.Build) void {
     exe.root_module.addImport("raylib", raylib);
     exe.root_module.addImport("raygui", raygui);
 
+    
+    // Janet
+    exe.root_module.addIncludePath(b.path("vendor/janet"));
+    exe.root_module.addCSourceFile(.{
+        .file = b.path("vendor/janet/janet.c"),
+        .flags = &.{"-std=c99"},
+    });
+    // Windows System Libraries for Janet
+    if (target.result.os.tag == .windows) {
+        exe.root_module.linkSystemLibrary("psapi", .{
+            .use_pkg_config = .no,
+        });
+
+        exe.root_module.linkSystemLibrary("ws2_32", .{
+            .use_pkg_config = .no,
+        });
+
+        exe.root_module.linkSystemLibrary("mswsock", .{
+            .use_pkg_config = .no,
+        });
+    }
+
+    
     const run_step = b.step("run", "Run the app");
     const run_cmd = b.addRunArtifact(exe);
     run_step.dependOn(&run_cmd.step);

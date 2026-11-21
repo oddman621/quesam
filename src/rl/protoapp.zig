@@ -8,10 +8,10 @@ const camera = @import("camera.zig");
 
 
 pub fn runRaylibApp(allocator: std.mem.Allocator, io: std.Io) !void {
-    const window_width = 1600;
-    const window_height = 900;
-    const game_width = 320 * 2;
-    const game_height = 180 * 2;
+    const window_width = 1920;
+    const window_height = 1080;
+    const game_width = 1920 / 2;
+    const game_height = 1080 / 2;
 
     rl.initWindow(window_width, window_height, "quesam");
     defer rl.closeWindow();
