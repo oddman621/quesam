@@ -2,7 +2,7 @@ const std = @import("std");
 const rl = @import("raylib");
 
 const BspRaw = @import("../bsp/raw.zig").BspRaw;
-const BspGlRenderer = @import("renderer.zig").BspGlRenderer;
+const BspRenderer = @import("renderer.zig").DiffLightRenderer;
 
 const camera = @import("camera.zig");
 
@@ -25,9 +25,8 @@ pub fn runRaylibApp(allocator: std.mem.Allocator, io: std.Io) !void {
     const bsp_raw = try BspRaw.load(allocator, io, "assets/maps/q3dm3.bsp");
     defer bsp_raw.unload(allocator);
 
-    const renderer = try BspGlRenderer.init(allocator, io, bsp_raw);
+    const renderer = try BspRenderer.init(allocator, io, bsp_raw);
     defer renderer.deinit(allocator);
-    renderer.setTextureFilter(.bilinear);
 
     // TODO: Create raylib-dependent Camera object?
     var cam = rl.Camera{
@@ -64,7 +63,7 @@ pub fn runRaylibApp(allocator: std.mem.Allocator, io: std.Io) !void {
             defer rl.endMode3D();
 
             rl.clearBackground(.dark_green);
-            renderer.render();
+            renderer.render(null, null);
         }
 
         // Draw Screen
