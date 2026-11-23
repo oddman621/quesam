@@ -8,16 +8,133 @@ const BspRaw = bsp.BspRaw;
 const Meshes = bsp_render.Meshes;
 const Vertex = bsp_render.Vertex;
 
+const DrawElementsFn = *const fn (
+    mode: u32,
+    count: i32,
+    @"type": u32,
+    indices: ?*const anyopaque,
+) callconv(.c) void;
+
+fn getDrawElementsFunc() ?DrawElementsFn {
+    const func = gl.rlGetProcAddress("glDrawElements");
+    if(func) |f| {
+        return @ptrCast(@alignCast(f));
+    } else return null;
+}
+
+pub const GlTexLightShader = struct {
+    handle: rl.Shader,
+    loc_projection: i32,
+    loc_view: i32,
+    loc_diffuse_map: i32,
+    loc_lightmap_map: i32,
+
+    const diffuse_slot: i32 = 0;
+    const lightmap_slot: i32 = 1;
+    
+    pub fn setShader(self: GlTexLightShader, projection: rl.Matrix, view: rl.Matrix) void {
+        gl.rlEnableShader(self.handle.id);
+        
+        rl.setShaderValue(self.handle, self.loc_diffuse_map, &diffuse_slot, .sampler2d);
+        rl.setShaderValue(self.handle, self.loc_lightmap_map, &lightmap_slot, .sampler2d);
+        rl.setShaderValueMatrix(self.handle, self.loc_projection, projection);
+        rl.setShaderValueMatrix(self.handle, self.loc_view, view);   
+    }
+
+    pub fn setDiffuse(_: GlTexLightShader, texture: rl.Texture) void {
+        gl.rlActiveTextureSlot(diffuse_slot);
+        gl.rlEnableTexture(texture.id);
+    }
+    
+    pub fn setLightmap(_: GlTexLightShader, texture: rl.Texture) void {
+        gl.rlActiveTextureSlot(lightmap_slot);
+        gl.rlEnableTexture(texture.id);
+    }
+
+    pub fn unsetShader(_: GlTexLightShader) void {
+        gl.rlDisableShader();
+    }
+
+    pub fn init() !GlTexLightShader {
+        const handle = try rl.loadShaderFromMemory(
+            shader_sources.get("texlight_vert"),
+            shader_sources.get("texlight_frag")
+        );
+
+        const loc_projection = rl.getShaderLocation(handle, "matProjection");
+        const loc_view = rl.getShaderLocation(handle, "matView");
+        const loc_diffuse_map = rl.getShaderLocation(handle, "diffuseMap");
+        const loc_lightmap_map = rl.getShaderLocation(handle, "lightmapMap");
+        
+
+        return .{
+            .handle = handle,
+            .loc_projection = loc_projection,
+            .loc_view = loc_view,
+            .loc_diffuse_map = loc_diffuse_map,
+            .loc_lightmap_map = loc_lightmap_map,
+        };
+    }
+
+    pub fn deinit(self: GlTexLightShader) void {
+        rl.unloadShader(self.handle);
+    }
+
+    const shader_sources = std.StaticStringMap([:0]const u8).initComptime(.{
+        .{ "texlight_vert",
+            \\#version 330
+            \\
+            \\layout(location = 0) in vec3 vertexPosition;
+            \\layout(location = 1) in vec2 vertexTexCoord;
+            \\layout(location = 5) in vec2 vertexTexCoord2;
+            \\
+            \\uniform mat4 matProjection;
+            \\uniform mat4 matView;
+            \\
+            \\out vec2 fragTexCoord;
+            \\out vec2 fragLightmapCoord;
+            \\
+            \\void main()
+            \\{
+            \\    fragTexCoord = vertexTexCoord;
+            \\    fragLightmapCoord = vertexTexCoord2;
+            \\
+            \\    gl_Position =
+            \\        matProjection * matView *
+            \\        vec4(vertexPosition, 1.0);
+            \\}
+        },
+        .{ "texlight_frag",
+            \\#version 330
+            \\
+            \\in vec2 fragTexCoord;
+            \\in vec2 fragLightmapCoord;
+            \\
+            \\uniform sampler2D diffuseMap;
+            \\uniform sampler2D lightmapMap;
+            \\
+            \\out vec4 finalColor;
+            \\
+            \\void main()
+            \\{
+            \\    vec4 diffuse = texture(diffuseMap, fragTexCoord);
+            \\    vec3 lightmap = texture(lightmapMap, fragLightmapCoord).rgb;
+            \\
+            \\    finalColor = vec4(
+            \\        diffuse.rgb * lightmap,
+            \\        diffuse.a
+            \\    );
+            \\}
+        }
+    });
+};
+
 pub const BspGlRenderer = struct {
     vao: u32,
     vbo: u32,
     ebo: u32,
 
-    shader: rl.Shader,
-    shaderloc_projection: i32,
-    shaderloc_view: i32,
-    shaderloc_diffuse_map: i32,
-    shaderloc_lightmap_map: i32,
+    shader: GlTexLightShader,
     draw_elements_fn: DrawElementsFn,
 
     meshes: Meshes,
@@ -41,18 +158,18 @@ pub const BspGlRenderer = struct {
         const view = gl.rlGetMatrixModelview();
 
         if (!gl.rlEnableVertexArray(self.vao)) std.debug.print("FAILED to EnableVertexArray(rl/renderer.zig:42)\n", .{});
-        gl.rlEnableShader(self.shader.id);
+        gl.rlEnableShader(self.shader.handle.id);
         defer {
             gl.rlDisableShader();
             gl.rlDisableVertexArray();
         }
 
-        gl.rlSetUniformMatrix(self.shaderloc_projection, projection);
-        gl.rlSetUniformMatrix(self.shaderloc_view, view);
+        gl.rlSetUniformMatrix(self.shader.loc_projection, projection);
+        gl.rlSetUniformMatrix(self.shader.loc_view, view);
         const diffuse_slot: i32 = 0;
         const lightmap_slot: i32 = 1;
-        rl.setShaderValue(self.shader, self.shaderloc_diffuse_map, &diffuse_slot, .sampler2d);
-        rl.setShaderValue(self.shader, self.shaderloc_lightmap_map, &lightmap_slot, .sampler2d);
+        rl.setShaderValue(self.shader.handle, self.shader.loc_diffuse_map, &diffuse_slot, .sampler2d);
+        rl.setShaderValue(self.shader.handle, self.shader.loc_lightmap_map, &lightmap_slot, .sampler2d);
 
         defer {
             gl.rlActiveTextureSlot(lightmap_slot);
@@ -170,29 +287,15 @@ pub const BspGlRenderer = struct {
             i += 1;
         }
 
-        // GL Shader
-        const shader = try loadBspRenderShader();
-        errdefer rl.unloadShader(shader);
-
-        const shaderloc_projection = rl.getShaderLocation(shader, "matProjection");
-        const shaderloc_view = rl.getShaderLocation(shader, "matView");
-        const shaderloc_diffuse_map = rl.getShaderLocation(shader, "diffuseMap");
-        const shaderloc_lightmap_map = rl.getShaderLocation(shader, "lightmapMap");
-
         // Get glDrawElements function
-        const draw_elements_fn_ptr = gl.rlGetProcAddress("glDrawElements") orelse return error.GlDrawElementsFunctionNotFound;
-        const draw_elements_fn: DrawElementsFn = @ptrCast(@alignCast(draw_elements_fn_ptr));
+        const draw_elements_fn: DrawElementsFn = getDrawElementsFunc() orelse return error.GlDrawElementsFunctionNotFound;
 
         return .{
             .vao = vao,
             .vbo = vbo,
             .ebo = ebo,
 
-            .shader = shader,
-            .shaderloc_projection = shaderloc_projection,
-            .shaderloc_view = shaderloc_view,
-            .shaderloc_diffuse_map = shaderloc_diffuse_map,
-            .shaderloc_lightmap_map = shaderloc_lightmap_map,
+            .shader = try .init(),
 
             .draw_elements_fn = draw_elements_fn,
 
@@ -214,9 +317,9 @@ pub const BspGlRenderer = struct {
         for (self.lightmap_textures) |texture| {
             rl.unloadTexture(texture);
         }
-        rl.unloadShader(self.shader);
         allocator.free(self.lightmap_textures);
 
+        rl.unloadShader(self.shader.handle);
         gl.rlUnloadVertexBuffer(self.ebo);
         gl.rlUnloadVertexBuffer(self.vbo);
         gl.rlUnloadVertexArray(self.vao);
@@ -231,63 +334,6 @@ pub const BspGlRenderer = struct {
             rl.setTextureFilter(texture, filter);
         }
     }
-
-    pub fn loadBspRenderShader() !rl.Shader {
-        return rl.loadShaderFromMemory(vertex_source, fragment_source);
-    }
-
-    pub const vertex_source =
-        \\#version 330
-        \\
-        \\layout(location = 0) in vec3 vertexPosition;
-        \\layout(location = 1) in vec2 vertexTexCoord;
-        \\layout(location = 5) in vec2 vertexTexCoord2;
-        \\
-        \\uniform mat4 matProjection;
-        \\uniform mat4 matView;
-        \\
-        \\out vec2 fragTexCoord;
-        \\out vec2 fragLightmapCoord;
-        \\
-        \\void main()
-        \\{
-        \\    fragTexCoord = vertexTexCoord;
-        \\    fragLightmapCoord = vertexTexCoord2;
-        \\
-        \\    gl_Position =
-        \\        matProjection * matView *
-        \\        vec4(vertexPosition, 1.0);
-        \\}
-    ;
-    pub const fragment_source =
-        \\#version 330
-        \\
-        \\in vec2 fragTexCoord;
-        \\in vec2 fragLightmapCoord;
-        \\
-        \\uniform sampler2D diffuseMap;
-        \\uniform sampler2D lightmapMap;
-        \\
-        \\out vec4 finalColor;
-        \\
-        \\void main()
-        \\{
-        \\    vec4 diffuse = texture(diffuseMap, fragTexCoord);
-        \\    vec3 lightmap = texture(lightmapMap, fragLightmapCoord).rgb;
-        \\
-        \\    finalColor = vec4(
-        \\        diffuse.rgb * lightmap,
-        \\        diffuse.a
-        \\    );
-        \\}
-    ;
-
-    const DrawElementsFn = *const fn (
-        mode: u32,
-        count: i32,
-        @"type": u32,
-        indices: ?*const anyopaque,
-    ) callconv(.c) void;
 };
 
 const rl_texture = struct {

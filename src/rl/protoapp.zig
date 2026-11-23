@@ -12,7 +12,7 @@ pub fn runRaylibApp(allocator: std.mem.Allocator, io: std.Io) !void {
     const game_width = 1920 / 2;
     const game_height = 1080 / 2;
 
-    rl.initWindow(window_width, window_height, "quesam");
+    rl.initWindow(window_width, window_height, "bsp rendering");
     defer rl.closeWindow();
     rl.setTargetFPS(60);
     rl.disableCursor();
