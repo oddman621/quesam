@@ -8,6 +8,7 @@ const BspRaw = bsp.BspRaw;
 const BspShader = bsp.BspShader;
 const Meshes = bsp_render.Meshes;
 const Vertex = bsp_render.Vertex;
+const Patch = bsp_render.TesselatedPatch;
 
 const DrawElementsFn = *const fn (
     mode: u32,
@@ -383,7 +384,41 @@ pub const DiffLightRenderer = struct {
                     errdefer draw.deinit();
                     try draws.append(allocator, draw);
                 },
-                .patch => {},
+                .patch => {
+                    const first_vert = surface.first_vert;
+                    const patch_width = surface.patch_width;
+                    const patch_height = surface.patch_height;
+                    const patch = try Patch.init(
+                        allocator, 5, 5,
+                        bsp_raw.draw_vertices,
+                        first_vert,
+                        patch_width,
+                        patch_height
+                    );
+                    defer patch.deinit(allocator);
+
+                    
+                    const shader_num = @as(usize, @intCast(surface.shader_num));
+                    const lightmap_id = if (surface.lightmap_num < 0)
+                        white_texture_id
+                    else
+                        lightmap_textures[@as(usize, @intCast(surface.lightmap_num))].id;
+                    const diff_id = if (diffuse_textures[shader_num]) |t| t.id else white_texture_id;
+
+                    const indices = try allocator.alloc(u32, patch.indices.len);
+                    defer allocator.free(indices);
+                    for (0..patch.indices.len) |i| {
+                        indices[i] = @as(u32, @intCast(patch.indices[i]));
+                    }
+
+                    const draw = try GlDiffLightDraw.init(
+                        patch.vertices,
+                        indices,
+                        diff_id,
+                        lightmap_id,
+                    );
+                    try draws.append(allocator, draw);
+                },
                 .flare => {},
                 .bad => continue,
             }
