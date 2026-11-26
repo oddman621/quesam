@@ -64,3 +64,6 @@ docgen_tmp/
 zig-pkg/
 
 # End of https://www.toptal.com/developers/gitignore/api/zig,emacs
+
+# 임시로 잠깐 assets 폴더 제외
+assets
