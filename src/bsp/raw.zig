@@ -94,8 +94,8 @@ pub const BspShaders = struct {
             const path: []const u8 = std.mem.sliceTo(chunk[offset .. offset + max_qpath].ptr, 0);
             shader.path = try allocator.dupeSentinel(u8, path, 0);
 
-            shader.surface_flags = @intCast(std.mem.readInt(i32, chunk[offset + max_qpath ..][0..4], .little));
-            shader.content_flags = @intCast(std.mem.readInt(i32, chunk[offset + max_qpath ..][4..8], .little));
+            shader.surface_flags = std.mem.readInt(u32, chunk[offset + max_qpath ..][0..4], .little);
+            shader.content_flags = std.mem.readInt(u32, chunk[offset + max_qpath ..][4..8], .little);
         }
 
         return .{ .shaders = shaders };

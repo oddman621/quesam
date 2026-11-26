@@ -24,7 +24,7 @@ pub fn runRaylibApp(allocator: std.mem.Allocator, io: std.Io) !void {
     defer rl.unloadRenderTexture(target);
     rl.setTextureFilter(target.texture, .point);
 
-    const bsp_raw = try BspRaw.load(allocator, io, "assets/maps/q3dm7.bsp");
+    const bsp_raw = try BspRaw.load(allocator, io, "assets/maps/q3dm11.bsp");
     defer bsp_raw.unload(allocator);
 
     const renderer = try BspRenderer.init(allocator, io, bsp_raw);
@@ -33,8 +33,7 @@ pub fn runRaylibApp(allocator: std.mem.Allocator, io: std.Io) !void {
     renderer.setDiffTexFilter(.bilinear);
     renderer.setDiffTexFilter(.anisotropic_4x);
 
-    const collision = try Collision.init(allocator,
-        bsp_raw.planes.planes, bsp_raw.nodes.nodes, bsp_raw.leaves.leaves);
+    const collision = try Collision.init(allocator, .fromBspRaw(bsp_raw));
     defer collision.deinit(allocator);
 
     // TODO: Create raylib-dependent Camera object?
@@ -110,11 +109,35 @@ pub fn runRaylibApp(allocator: std.mem.Allocator, io: std.Io) !void {
                 .white,
             );
 
-            if (collision.isPointInside(cam.position.toFloatV().v)) {
-                rl.drawText("You are inside", 0, 0, 64, .sky_blue);
-            } else {
-                rl.drawText("You are in SOLID", 0, 0, 64, .red);
-            }
+            const contents_flags = collision.pointContents(cam.position.toFloatV().v);
+            drawContentsFlags(contents_flags, 64);
         }
+    }
+}
+
+fn drawContentsFlags(contents_flags: Collision.ContentsFlags, fontsize: i32) void {    
+    var line: i32 = 0;
+    if (contents_flags.solid) {
+        rl.drawText("SOLID", 0, fontsize * line, fontsize, .beige);
+        line += 1;
+    }
+    if (contents_flags.water) {
+        rl.drawText("WATER", 0, fontsize * line, fontsize, .blue);
+        line += 1;
+    }
+    if (contents_flags.fog) {
+        rl.drawText("FOG", 0, fontsize * line, fontsize, .light_gray);
+        line += 1;
+    }
+    if (contents_flags.slime) {
+        rl.drawText("SLIME", 0, fontsize * line, fontsize, .green);
+        line += 1;
+    }
+    if (contents_flags.lava) {
+        rl.drawText("LAVA", 0, fontsize * line, fontsize, .red);
+        line += 1;
+    }
+    if (contents_flags.teleporter) {
+        rl.drawText("TELEPORTER", 0, fontsize * line, fontsize, .ray_white);
     }
 }
