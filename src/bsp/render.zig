@@ -1,6 +1,5 @@
 const std = @import("std");
 const raw = @import("raw.zig");
-const BspRaw = raw.BspRaw; // no use?
 const BspDrawVertex = raw.BspDrawVertex;
 const BspDrawVertices = raw.BspDrawVertices;
 const BspDrawIndices = raw.BspDrawIndices; // no use?
@@ -239,6 +238,9 @@ pub const Bezier3x3Quad = struct {
     }
 };
 
+/////////////////////////////////////////////////////////////////
+// DEPRECATED? not sure... maybe ok to remove below when BspGlRenderer is gone.
+
 // Regroup BSP's data into `Dictionary{(shader, lightmap): T}`.
 // NOTICE: This regrouping does not consider the render priority for transparent textures. Maybe TODO?
 const HashMap = struct {
@@ -349,6 +351,9 @@ pub const Meshes = struct {
         allocator.free(self.indices);
     }
 };
+
+////////////////////////////////////////
+// Patch Test
 
 test "Bezier3x3Quad make indices" {
     const allocator = std.testing.allocator;

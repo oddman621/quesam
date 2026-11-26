@@ -290,6 +290,20 @@ pub const DiffLightRenderer = struct {
 
     shader: GlTexLightShader,
 
+    pub fn setDiffTexFilter(self: DiffLightRenderer, filter: rl.TextureFilter) void {
+        for (self.diffuse_textures) |difftex| {
+            if (difftex) |t| {
+                rl.setTextureFilter(t, filter);
+            }
+        }
+    }
+
+    pub fn setLightmapFilter(self: DiffLightRenderer, filter: rl.TextureFilter) void {
+        for (self.lightmap_textures) |lighttex| {
+            rl.setTextureFilter(lighttex, filter);
+        }
+    }
+
     pub fn render(self: DiffLightRenderer, view: ?rl.Matrix, projection: ?rl.Matrix) void {
         gl.rlDrawRenderBatchActive();
 
@@ -417,6 +431,7 @@ pub const DiffLightRenderer = struct {
                         diff_id,
                         lightmap_id,
                     );
+                    errdefer draw.deinit();
                     try draws.append(allocator, draw);
                 },
                 .flare => {},

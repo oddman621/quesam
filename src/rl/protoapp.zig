@@ -4,13 +4,15 @@ const rl = @import("raylib");
 const BspRaw = @import("../bsp/raw.zig").BspRaw;
 const BspRenderer = @import("renderer.zig").DiffLightRenderer;
 
+const Collision = @import("../bsp/collision.zig").StaticCollisionMap;
+
 const camera = @import("camera.zig");
 
 pub fn runRaylibApp(allocator: std.mem.Allocator, io: std.Io) !void {
     const window_width = 1920;
     const window_height = 1080;
-    const game_width = 1920 / 2;
-    const game_height = 1080 / 2;
+    const game_width = 640;
+    const game_height = 360;
 
     rl.initWindow(window_width, window_height, "bsp rendering");
     defer rl.closeWindow();
@@ -22,11 +24,18 @@ pub fn runRaylibApp(allocator: std.mem.Allocator, io: std.Io) !void {
     defer rl.unloadRenderTexture(target);
     rl.setTextureFilter(target.texture, .point);
 
-    const bsp_raw = try BspRaw.load(allocator, io, "assets/maps/q3dm3.bsp");
+    const bsp_raw = try BspRaw.load(allocator, io, "assets/maps/q3dm7.bsp");
     defer bsp_raw.unload(allocator);
 
     const renderer = try BspRenderer.init(allocator, io, bsp_raw);
     defer renderer.deinit(allocator);
+    renderer.setLightmapFilter(.bilinear);
+    renderer.setDiffTexFilter(.bilinear);
+    renderer.setDiffTexFilter(.anisotropic_4x);
+
+    const collision = try Collision.init(allocator,
+        bsp_raw.planes.planes, bsp_raw.nodes.nodes, bsp_raw.leaves.leaves);
+    defer collision.deinit(allocator);
 
     // TODO: Create raylib-dependent Camera object?
     var cam = rl.Camera{
@@ -100,6 +109,12 @@ pub fn runRaylibApp(allocator: std.mem.Allocator, io: std.Io) !void {
                 0,
                 .white,
             );
+
+            if (collision.isPointInside(cam.position.toFloatV().v)) {
+                rl.drawText("You are inside", 0, 0, 64, .sky_blue);
+            } else {
+                rl.drawText("You are in SOLID", 0, 0, 64, .red);
+            }
         }
     }
 }

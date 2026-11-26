@@ -129,7 +129,8 @@ pub const BspPlanes = struct {
 
 pub const BspNode = extern struct {
     plane_num: i32,
-    children: [2]i32,
+    front: i32,
+    back: i32,
     mins: [3]i32,
     maxs: [3]i32,
 };
